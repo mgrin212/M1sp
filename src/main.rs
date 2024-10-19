@@ -2,6 +2,7 @@ mod asm;
 mod assemble;
 mod ast;
 mod compile;
+mod utils;
 use asm::string_of_directive;
 use ast::parse;
 use compile::compile;

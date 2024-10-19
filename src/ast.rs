@@ -3,13 +3,13 @@ use nom::{
     bytes::complete::tag,
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
     combinator::{map, map_res, recognize},
-    multi::many0,
-    sequence::{delimited, pair, tuple},
+    multi::{many0, many1},
+    sequence::{delimited, pair, preceded, tuple},
     IResult,
 };
 
 #[derive(Debug, PartialEq)]
-pub enum Prim1 {
+pub enum UnPrim {
     Add1,
     Sub1,
     IsZero,
@@ -18,7 +18,7 @@ pub enum Prim1 {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Prim2 {
+pub enum BinPrim {
     Plus,
     Minus,
     Eq,
@@ -32,8 +32,11 @@ pub enum Expr {
     True,
     False,
     Nil,
-    UnPrim(Prim1, Box<Expr>),
-    BinPrim(Prim2, Box<Expr>, Box<Expr>),
+    UnPrim(UnPrim, Box<Expr>),
+    BinPrim(BinPrim, Box<Expr>, Box<Expr>),
+    If(Box<Expr>, Box<Expr>, Box<Expr>),
+    Let(Vec<(String, Box<Expr>)>, Box<Expr>),
+    Do(Vec<Expr>),
 }
 
 fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O>
@@ -55,44 +58,34 @@ fn parse_id(input: &str) -> IResult<&str, Expr> {
             alt((alpha1, tag("_"))),
             many0(alt((alphanumeric1, tag("_")))),
         )),
-        |s: &str| {
-            match s {
-                "true" => Expr::True,
-                "false" => Expr::False,
-                _ => Expr::Id(s.to_string()),
-            }
+        |s: &str| match s {
+            "true" => Expr::True,
+            "false" => Expr::False,
+            _ => Expr::Id(s.to_string()),
         },
     )(input)
-}
-
-fn parse_true(input: &str) -> IResult<&str, Expr> {
-    map(tag("true"), |_| Expr::True)(input)
-}
-
-fn parse_false(input: &str) -> IResult<&str, Expr> {
-    map(tag("false"), |_| Expr::False)(input)
 }
 
 fn parse_nil(input: &str) -> IResult<&str, Expr> {
     map(tag("()"), |_| Expr::Nil)(input)
 }
 
-fn parse_un_prim(input: &str) -> IResult<&str, Prim1> {
+fn parse_un_prim(input: &str) -> IResult<&str, UnPrim> {
     alt((
-        map(tag("add1"), |_| Prim1::Add1),
-        map(tag("sub1"), |_| Prim1::Sub1),
-        map(tag("zero?"), |_| Prim1::IsZero),
-        map(tag("num?"), |_| Prim1::IsNum),
-        map(tag("not"), |_| Prim1::Not),
+        map(tag("add1"), |_| UnPrim::Add1),
+        map(tag("sub1"), |_| UnPrim::Sub1),
+        map(tag("zero?"), |_| UnPrim::IsZero),
+        map(tag("num?"), |_| UnPrim::IsNum),
+        map(tag("not"), |_| UnPrim::Not),
     ))(input)
 }
 
-fn parse_bin_prim(input: &str) -> IResult<&str, Prim2> {
+fn parse_bin_prim(input: &str) -> IResult<&str, BinPrim> {
     alt((
-        map(char('+'), |_| Prim2::Plus),
-        map(char('-'), |_| Prim2::Minus),
-        map(char('='), |_| Prim2::Eq),
-        map(char('<'), |_| Prim2::Lt),
+        map(char('+'), |_| BinPrim::Plus),
+        map(char('-'), |_| BinPrim::Minus),
+        map(char('='), |_| BinPrim::Eq),
+        map(char('<'), |_| BinPrim::Lt),
     ))(input)
 }
 
@@ -118,6 +111,64 @@ fn parse_bin_prim_expr(input: &str) -> IResult<&str, Expr> {
     )(input)
 }
 
+fn parse_if_expr(input: &str) -> IResult<&str, Expr> {
+    map(
+        delimited(
+            char('('),
+            preceded(
+                ws(tag("if")),
+                tuple((ws(parse_expr), ws(parse_expr), ws(parse_expr))),
+            ),
+            char(')'),
+        ),
+        |(cond, then_expr, else_expr)| {
+            Expr::If(Box::new(cond), Box::new(then_expr), Box::new(else_expr))
+        },
+    )(input)
+}
+
+fn parse_let_binding(input: &str) -> IResult<&str, (String, Box<Expr>)> {
+    delimited(
+        char('('),
+        tuple((
+            ws(map(parse_id, |expr| match expr {
+                Expr::Id(s) => s,
+                _ => unreachable!(),
+            })),
+            ws(map(parse_expr, Box::new)),
+        )),
+        char(')'),
+    )(input)
+}
+
+fn parse_let_expr(input: &str) -> IResult<&str, Expr> {
+    map(
+        delimited(
+            char('('),
+            preceded(
+                ws(tag("let")),
+                tuple((
+                    delimited(char('('), many0(ws(parse_let_binding)), char(')')),
+                    ws(parse_expr),
+                )),
+            ),
+            char(')'),
+        ),
+        |(bindings, body)| Expr::Let(bindings, Box::new(body)),
+    )(input)
+}
+
+fn parse_do_expr(input: &str) -> IResult<&str, Expr> {
+    map(
+        delimited(
+            char('('),
+            preceded(ws(tag("do")), many1(ws(parse_expr))),
+            char(')'),
+        ),
+        Expr::Do,
+    )(input)
+}
+
 fn parse_expr(input: &str) -> IResult<&str, Expr> {
     alt((
         parse_num,
@@ -125,6 +176,9 @@ fn parse_expr(input: &str) -> IResult<&str, Expr> {
         parse_nil,
         parse_un_prim_expr,
         parse_bin_prim_expr,
+        parse_if_expr,
+        parse_let_expr,
+        parse_do_expr,
     ))(input)
 }
 
@@ -158,15 +212,57 @@ mod tests {
         assert_eq!(parse("()"), Ok(vec![Expr::Nil]));
         assert_eq!(
             parse("(add1 5)"),
-            Ok(vec![Expr::UnPrim(Prim1::Add1, Box::new(Expr::Num(5)))])
+            Ok(vec![Expr::UnPrim(UnPrim::Add1, Box::new(Expr::Num(5)))])
         );
         assert_eq!(
             parse("(+ 3 4)"),
             Ok(vec![Expr::BinPrim(
-                Prim2::Plus,
+                BinPrim::Plus,
                 Box::new(Expr::Num(3)),
                 Box::new(Expr::Num(4))
             )])
+        );
+    }
+
+    #[test]
+    fn test_parse_if_expr() {
+        assert_eq!(
+            parse("(if true 1 2)"),
+            Ok(vec![Expr::If(
+                Box::new(Expr::True),
+                Box::new(Expr::Num(1)),
+                Box::new(Expr::Num(2))
+            )])
+        );
+    }
+
+    #[test]
+    fn test_parse_let_expr() {
+        assert_eq!(
+            parse("(let ((x 1) (y 2)) (+ x y))"),
+            Ok(vec![Expr::Let(
+                vec![
+                    ("x".to_string(), Box::new(Expr::Num(1))),
+                    ("y".to_string(), Box::new(Expr::Num(2)))
+                ],
+                Box::new(Expr::BinPrim(
+                    BinPrim::Plus,
+                    Box::new(Expr::Id("x".to_string())),
+                    Box::new(Expr::Id("y".to_string()))
+                ))
+            )])
+        );
+    }
+
+    #[test]
+    fn test_parse_do_expr() {
+        assert_eq!(
+            parse("(do 1 2 3)"),
+            Ok(vec![Expr::Do(vec![
+                Expr::Num(1),
+                Expr::Num(2),
+                Expr::Num(3)
+            ])])
         );
     }
 
@@ -178,17 +274,6 @@ mod tests {
                 Expr::Num(42),
                 Expr::Id("x".to_string()),
                 Expr::True
-            ])
-        );
-        assert_eq!(
-            parse("(add1 5) (+ 3 4)"),
-            Ok(vec![
-                Expr::UnPrim(Prim1::Add1, Box::new(Expr::Num(5))),
-                Expr::BinPrim(
-                    Prim2::Plus,
-                    Box::new(Expr::Num(3)),
-                    Box::new(Expr::Num(4))
-                )
             ])
         );
     }
