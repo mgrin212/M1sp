@@ -1,0 +1,177 @@
+test1|(+ 2 3)|5,
+test2|(+ 5 6)|11,
+multest1|
+(* 3 4)|
+12,
+multest2|
+(* -2 5)|
+-10,
+multest3|
+(* 0 100)|
+0,
+divtest1|
+(/ 10 2)|
+5,
+divtest2|
+(/ -15 3)|
+-5,
+divtest3|
+(* 3 (/ 10 5))|
+6,
+divtest4|
+(/ 7 2)|
+3,
+andtest1|
+(and true true)|
+true,
+andtest2|
+(and true false)|
+false,
+andtest3|
+(and false true)|
+false,
+andtest4|
+(and 1 2)|
+2,
+andtest5|
+(and false 0)|
+false,
+ortest1|
+(or true false)|
+true,
+ortest2|
+(or false true)|
+true,
+ortest3|
+(or false false)|
+false,
+ortest4|
+(or 1 2)|
+1,
+ortest5|
+(or false 0)|
+0,
+shortcircuitand|
+(and false (/ 1 0))|
+false,
+shortcircuitor|
+(or true (/ 1 0))|
+true,
+casetest1|
+(case 4 (1 1) (2 4) (3 9) (4 16) (5 25))|
+16,
+casetest2|
+(case 4 (1 11) (2 -22) (3 33) (4 44))|
+44,
+casetest3|
+(case 0 (0 0) (1 1) (-1 -1))|
+0,
+casetest3rev|
+(case 0 (-1 -1) (0 0) (1 1))|
+0,
+casetest3pos|
+(case 0 (0 0) (1 1) (2 2))|
+0,
+caseDefault|
+(case 4
+  (1 1)
+  (10 4)
+  (3 9)
+  (25 16)
+  (2 25))|
+25,
+casetest3pos2|
+(case 0 (0 10) (1 20) (2 30))|
+10,
+casetest4|
+(case 5 (-10 -10) (-5 -5) (0 0) (5 5))|
+5,
+casetest5|
+(case 100 (1 1) (10 10) (100 100) (1000 1000))|
+100,
+complextest1|
+(let ((x 5) (y 3))
+  (case (* x y)
+    (10 (+ x y))
+    (15 (* x y))
+    (20 (/ x y))))|
+15,
+complextest2|
+(and (or (= (* 2 3) 6) (< 5 2)) (not (zero? (/ 10 5))))|
+true,
+complextest3|
+(case (if (and (< 3 5) (< 2 4)) 1 0)
+  (0 0)
+  (1 1))|
+1,
+complextest4|
+(let ((x 10) (y 5))
+  (or (and (< y x) (= (/ x y) 2))
+      (case (- x y)
+        (0 false)
+        (5 true)
+        (10 false))))|
+true,
+complextest5|
+(case (* 2 (/ 10 (+ 1 1)))
+  (5 5)
+  (4 4)
+  (10 10))|
+10,
+iftest1|
+(if true 1 0)|
+1,
+iftest2|
+(if false 1 0)|
+0,
+iftest3|
+(if (< 5 10) (+ 1 1) (- 1 1))|
+2,
+
+debug_and|
+(and (< 3 5) (< 2 4))|
+true,
+
+debug_if|
+(if (and (< 3 5) (< 2 4)) 1 0)|
+1,
+
+debug_case1|
+(case 1
+  (0 0)
+  (1 1))|
+1,
+
+debug_case2|
+(case 0
+  (0 0)
+  (1 1))|
+0,
+
+debug_if_case|
+(case (if true 1 0)
+  (0 0)
+  (1 1))|
+1,
+
+debug_and_if_case|
+(case (if (and true true) 1 0)
+  (0 0)
+  (1 1))|
+1,
+
+debug_less_than|
+(< 2 4)|
+true,
+
+debug_simple_and|
+(and true true)|
+true,
+
+debug_simple_if_true|
+(if true 1 0)|
+1,
+
+debug_simple_if_false|
+(if false 1 0)|
+0,

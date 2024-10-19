@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use nom::combinator::map;
+
 use crate::{
     asm::{
         Directive::{self, *},
@@ -102,11 +104,7 @@ fn compile_unary_primitive(expr: UnPrim) -> Vec<Directive> {
         UnPrim::IsZero => [vec![Cmp(Reg(X0), operand_of_num(0))], zf_to_bool()].concat(),
     }
 }
-pub fn compile_expr(
-    symtab: &HashMap<String, String>,
-    stack_index: i64,
-    expr: Expr,
-) -> Vec<Directive> {
+pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr) -> Vec<Directive> {
     match expr {
         Expr::Nil => vec![Mov(Reg(X0), Imm(NIL_TAG))],
         Expr::Num(x) => vec![Mov(Reg(X0), operand_of_num(x))],
@@ -142,6 +140,34 @@ pub fn compile_expr(
             ]
             .concat()
         }
+        Expr::Id(s) if symtab.contains_key(&s) => {
+            vec![Ldr(Reg(X0), stack_address(*symtab.get(&s).unwrap()))]
+        }
+        Expr::Let(bindings, body) => {
+            let mut compiled = Vec::new();
+            let mut new_symtab = symtab.clone();
+
+            for (i, (var, exp)) in bindings.iter().enumerate() {
+                let mut exp_code =
+                    compile_expr(&new_symtab, stack_index - (8 * i as i64), *exp.clone());
+                compiled.append(&mut exp_code);
+                compiled.push(Str(stack_address(stack_index - (8 * i as i64)), Reg(X0)));
+                new_symtab.insert(var.clone(), stack_index - (8 * i as i64));
+            }
+
+            let body_code = compile_expr(
+                &new_symtab,
+                stack_index - (8 * bindings.len() as i64),
+                *body,
+            );
+            compiled.extend(body_code);
+
+            compiled
+        }
+        Expr::Do(exps) => exps
+            .into_iter()
+            .flat_map(|e| compile_expr(symtab, stack_index, e))
+            .collect(),
         _ => vec![],
     }
 }

@@ -8,7 +8,7 @@ use nom::{
     IResult,
 };
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum UnPrim {
     Add1,
     Sub1,
@@ -17,7 +17,7 @@ pub enum UnPrim {
     Not,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum BinPrim {
     Plus,
     Minus,
@@ -25,7 +25,7 @@ pub enum BinPrim {
     Lt,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expr {
     Num(i64),
     Id(String),
@@ -192,7 +192,10 @@ pub fn parse(input: &str) -> Result<Vec<Expr>, String> {
             if remaining.trim().is_empty() {
                 Ok(exprs)
             } else {
-                Err(format!("Parsing incomplete. Remaining input: '{}'", remaining))
+                Err(format!(
+                    "Parsing incomplete. Remaining input: '{}'",
+                    remaining
+                ))
             }
         }
         Err(e) => Err(format!("Parse error: {:?}", e)),
@@ -270,11 +273,7 @@ mod tests {
     fn test_parse_multiple_expressions() {
         assert_eq!(
             parse("42 x true"),
-            Ok(vec![
-                Expr::Num(42),
-                Expr::Id("x".to_string()),
-                Expr::True
-            ])
+            Ok(vec![Expr::Num(42), Expr::Id("x".to_string()), Expr::True])
         );
     }
 
@@ -282,11 +281,7 @@ mod tests {
     fn test_parse_with_whitespace() {
         assert_eq!(
             parse("  42  \n  x  \t true  "),
-            Ok(vec![
-                Expr::Num(42),
-                Expr::Id("x".to_string()),
-                Expr::True
-            ])
+            Ok(vec![Expr::Num(42), Expr::Id("x".to_string()), Expr::True])
         );
     }
 
