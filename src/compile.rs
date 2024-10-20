@@ -4,6 +4,7 @@ use nom::combinator::map;
 
 use crate::{
     asm::{
+        label_name,
         Directive::{self, *},
         Operand::{self, *},
         Register::*,
@@ -168,17 +169,39 @@ pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr)
             .into_iter()
             .flat_map(|e| compile_expr(symtab, stack_index, *e))
             .collect(),
+        Expr::FuncDef(name, args, body) => {
+            let mut directives = Vec::new();
+            let label_name = if name == "main".to_string() {
+                "lisp_entry".to_string()
+            } else {
+                name.clone()
+            };
+            directives.push(Label(label_name));
+
+            let prologue = vec![
+                Stp(Reg(Fp), Reg(Lr), RegOffset(Sp, -16)),
+                Mov(Reg(Fp), Reg(Sp)),
+            ];
+
+            let epilogue = vec![Ldp(Reg(Fp), Reg(Lr), RegOffset(Sp, 16)), Ret];
+
+            directives.extend(prologue);
+            directives.extend(compile_expr(symtab, stack_index, *body));
+            directives.extend(epilogue);
+            directives
+        }
         _ => vec![],
     }
 }
 
-pub fn compile(expr: Expr) -> Vec<Directive> {
+pub fn compile(exprs: Vec<Expr>) -> Vec<Directive> {
     let start = vec![
         Global("lisp_entry".to_string()),
         Extern("lisp_error".to_string()),
-        Label("lisp_entry".to_string()),
     ];
-    let body = compile_expr(&HashMap::new(), -8, expr);
-    let ret = vec![Ret];
-    [start, body, ret].concat()
+    let body = exprs
+        .into_iter()
+        .flat_map(|e| compile_expr(&HashMap::new(), -8, e))
+        .collect();
+    [start, body].concat()
 }

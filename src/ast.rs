@@ -6,7 +6,6 @@ pub enum Expr {
     Unit,
     UnOp(UnaryOp, Box<Expr>),
     BinOp(BinaryOp, Box<Expr>, Box<Expr>),
-    TriOp(TernaryOp, Box<Expr>, Box<Expr>, Box<Expr>),
     If(Box<Expr>, Box<Expr>, Box<Expr>),
     Let(Vec<(String, Box<Expr>)>, Box<Expr>),
     Do(Vec<Box<Expr>>),
@@ -21,12 +20,6 @@ pub enum UnaryOp {
     IsZero,
     IsNum,
     Not,
-    IsPair,
-    Left,
-    Right,
-    IsList,
-    IsVector,
-    VectorLength,
 }
 
 #[derive(Debug, Clone)]
@@ -35,12 +28,4 @@ pub enum BinaryOp {
     Sub,
     Eq,
     Lt,
-    Pair,
-    Vector,
-    VectorGet,
-}
-
-#[derive(Debug, Clone)]
-pub enum TernaryOp {
-    VectorSet,
 }

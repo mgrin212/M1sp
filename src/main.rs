@@ -21,16 +21,18 @@ fn read_file(path: &Path) -> io::Result<String> {
 }
 
 fn parse_and_compile(contents: &str) -> Result<String, String> {
-    let parsed = grammar::ExprParser::new().parse(contents);
+    let parsed = grammar::ProgramParser::new().parse(contents);
     let mut output = String::new();
     if let Ok(expr_vec) = parsed {
-        let directives = compile(*expr_vec);
+        let directives = compile(expr_vec);
         for directive in directives {
             output.push_str(&format!("{}\n", string_of_directive(&directive)));
         }
-        Ok(output)
+        return Ok(output)
+    } if let Err(e) = parsed {
+        Err(e.to_string())
     } else {
-        Err("Failed to parse input".to_string())
+        Err("unable to parse input".to_string())
     }
 }
 

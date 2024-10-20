@@ -1,94 +1,72 @@
 use std::str::FromStr;
-use crate::ast::{Expr, BinaryOp, UnaryOp, TernaryOp};
+use crate::ast::{Expr, UnaryOp, BinaryOp};
 
 grammar;
 
-pub Expr: Box<Expr> = {
+pub Program: Vec<Expr> = {
+    <v:FuncDef*> => v,
+}
+
+FuncDef: Expr = {
+    "fn" <name:Identifier> "(" <params:Comma<Identifier>> ")" "{" <body:Expr> "}" => 
+        Expr::FuncDef(name, params, Box::new(body)),
+}
+
+Expr: Expr = {
     Let,
     If,
-    BinaryExpr,
-};
+    BinExpr,
+}
 
-Let: Box<Expr> = {
-    "let" <bindings:Bindings> "in" <body:Expr> => Box::new(Expr::Let(bindings, body)),
-};
+Let: Expr = {
+    "let" <bindings:Comma<LetBinding>> "in" <body:Expr> => 
+        Expr::Let(bindings, Box::new(body)),
+}
 
-Bindings: Vec<(String, Box<Expr>)> = {
-    <binding:Binding> => vec![binding],
-    <mut bindings:Bindings> "," <binding:Binding> => {
-        bindings.push(binding);
-        bindings
-    },
-};
+LetBinding: (String, Box<Expr>) = {
+    <id:Identifier> "=" <e:BinExpr> => (id, Box::new(e)),
+}
 
-Binding: (String, Box<Expr>) = {
-    <id:Id> "=" <expr:Expr> => (id, expr),
-};
+If: Expr = {
+    "if" <cond:BinExpr> "{" <then:Expr> "}" "else" "{" <else_:Expr> "}" => 
+        Expr::If(Box::new(cond), Box::new(then), Box::new(else_)),
+}
 
-If: Box<Expr> = {
-    "if" "(" <cond:Expr> ")" <then_branch:Expr> "else" <else_branch:Expr> => 
-        Box::new(Expr::If(cond, then_branch, else_branch)),
-};
-
-BinaryExpr: Box<Expr> = {
-    <l:BinaryExpr> <op:BinOp> <r:Term> => Box::new(Expr::BinOp(op, l, r)),
-    Term,
-};
-
-Term: Box<Expr> = {
-    <l:Term> <op:TermOp> <r:Factor> => Box::new(Expr::BinOp(op, l, r)),
+BinExpr: Expr = {
+    <l:BinExpr> "+" <r:Factor> => Expr::BinOp(BinaryOp::Add, Box::new(l), Box::new(r)),
+    <l:BinExpr> "-" <r:Factor> => Expr::BinOp(BinaryOp::Sub, Box::new(l), Box::new(r)),
+    <l:BinExpr> "<" <r:Factor> => Expr::BinOp(BinaryOp::Lt, Box::new(l), Box::new(r)),
+    <l:BinExpr> "=" <r:Factor> => Expr::BinOp(BinaryOp::Eq, Box::new(l), Box::new(r)),
     Factor,
-};
+}
 
-Factor: Box<Expr> = {
-    Num => Box::new(Expr::Num(<>)),
-    "true" => Box::new(Expr::Bool(true)),
-    "false" => Box::new(Expr::Bool(false)),
-    Id => Box::new(Expr::Id(<>)),
-    "(" <Expr> ")",
-    "{" <exprs:(<Expr> ";")*> <last:Expr?> "}" => {
-        let mut all_exprs = exprs;
-        if let Some(last_expr) = last {
-            all_exprs.push(last_expr);
+Factor: Expr = {
+    Num,
+    "(" <e:Expr> ")" => e,
+    Identifier => Expr::Id(<>),
+    UnaryExpr,
+}
+
+UnaryExpr: Expr = {
+    "add1" <e:Factor> => Expr::UnOp(UnaryOp::Add1, Box::new(e)),
+    "sub1" <e:Factor> => Expr::UnOp(UnaryOp::Sub1, Box::new(e)),
+}
+
+Num: Expr = {
+    r"-?[0-9]+" => Expr::Num(i64::from_str(<>).unwrap()),
+}
+
+Identifier: String = {
+    r"[a-zA-Z_][a-zA-Z0-9_]*" => <>.to_string(),
+}
+
+Comma<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
         }
-        Box::new(Expr::Do(all_exprs))
-    },
-    <op:UnOp> "(" <e:Expr> ")" => Box::new(Expr::UnOp(op, e)),
-    <op:TriOp> "(" <e1:Expr> "," <e2:Expr> "," <e3:Expr> ")" => Box::new(Expr::TriOp(op, e1, e2, e3)),
-};
-
-BinOp: BinaryOp = {
-    "==" => BinaryOp::Eq,
-    "<" => BinaryOp::Lt,
-};
-
-TermOp: BinaryOp = {
-    "+" => BinaryOp::Add,
-    "-" => BinaryOp::Sub,
-};
-
-UnOp: UnaryOp = {
-    "add1" => UnaryOp::Add1,
-    "sub1" => UnaryOp::Sub1,
-    "isZero" => UnaryOp::IsZero,
-    "isNum" => UnaryOp::IsNum,
-    "!" => UnaryOp::Not,
-    "isPair" => UnaryOp::IsPair,
-    "left" => UnaryOp::Left,
-    "right" => UnaryOp::Right,
-    "isList" => UnaryOp::IsList,
-    "isVector" => UnaryOp::IsVector,
-    "vectorLength" => UnaryOp::VectorLength,
-};
-
-TriOp: TernaryOp = {
-    "vectorSet" => TernaryOp::VectorSet,
-};
-
-Num: i64 = {
-    r"-?[0-9]+" => i64::from_str(<>).unwrap(),
-};
-
-Id: String = {
-    r"[a-zA-Z][a-zA-Z0-9_]*" => <>.to_string(),
-};
+    }
+}
