@@ -10,6 +10,8 @@ pub enum Expr {
     If(Box<Expr>, Box<Expr>, Box<Expr>),
     Let(Vec<(String, Box<Expr>)>, Box<Expr>),
     Do(Vec<Box<Expr>>),
+    FuncDef(String, Vec<String>, Box<Expr>), 
+    FuncCall(Box<Expr>, Vec<Box<Expr>>),      
 }
 
 #[derive(Debug, Clone)]

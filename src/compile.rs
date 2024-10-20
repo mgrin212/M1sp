@@ -166,7 +166,7 @@ pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr)
         }
         Expr::Do(exps) => exps
             .into_iter()
-            .flat_map(|e| compile_expr(symtab, stack_index, e))
+            .flat_map(|e| compile_expr(symtab, stack_index, *e))
             .collect(),
         _ => vec![],
     }
