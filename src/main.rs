@@ -1,11 +1,11 @@
 mod asm;
 mod assemble;
-mod ast;
+pub mod ast;
 mod compile;
+pub mod grammar;
 mod utils;
-
 use asm::string_of_directive;
-use ast::{parse, Expr};
+use ast::*;
 use compile::compile;
 use std::env;
 use std::fs::{self, File};
@@ -21,14 +21,12 @@ fn read_file(path: &Path) -> io::Result<String> {
 }
 
 fn parse_and_compile(contents: &str) -> Result<String, String> {
-    let parsed = parse(contents);
+    let parsed = grammar::ExprParser::new().parse(contents);
     let mut output = String::new();
     if let Ok(expr_vec) = parsed {
-        for expr in expr_vec {
-            let directives = compile(expr);
-            for directive in directives {
-                output.push_str(&format!("{}\n", string_of_directive(&directive)));
-            }
+        let directives = compile(*expr_vec);
+        for directive in directives {
+            output.push_str(&format!("{}\n", string_of_directive(&directive)));
         }
         Ok(output)
     } else {
@@ -37,9 +35,9 @@ fn parse_and_compile(contents: &str) -> Result<String, String> {
 }
 
 fn parse_file(path: &Path) -> Result<(), String> {
-    let mut contents = read_file(path).map_err(|e| format!("Error reading file: {}", e))?;
-    contents.replace('\n', "");
-    let output = parse_and_compile(&contents)?;
+    let contents = read_file(path).map_err(|e| format!("Error reading file: {}", e))?;
+    let cleaned = contents.replace('\n', "");
+    let output = parse_and_compile(&cleaned)?;
     println!("{}", output);
     Ok(())
 }

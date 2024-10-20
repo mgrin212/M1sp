@@ -1,0 +1,94 @@
+use std::str::FromStr;
+use crate::ast::{Expr, BinaryOp, UnaryOp, TernaryOp};
+
+grammar;
+
+pub Expr: Box<Expr> = {
+    Let,
+    If,
+    BinaryExpr,
+};
+
+Let: Box<Expr> = {
+    "let" <bindings:Bindings> "in" <body:Expr> => Box::new(Expr::Let(bindings, body)),
+};
+
+Bindings: Vec<(String, Box<Expr>)> = {
+    <binding:Binding> => vec![binding],
+    <mut bindings:Bindings> "," <binding:Binding> => {
+        bindings.push(binding);
+        bindings
+    },
+};
+
+Binding: (String, Box<Expr>) = {
+    <id:Id> "=" <expr:Expr> => (id, expr),
+};
+
+If: Box<Expr> = {
+    "if" "(" <cond:Expr> ")" <then_branch:Expr> "else" <else_branch:Expr> => 
+        Box::new(Expr::If(cond, then_branch, else_branch)),
+};
+
+BinaryExpr: Box<Expr> = {
+    <l:BinaryExpr> <op:BinOp> <r:Term> => Box::new(Expr::BinOp(op, l, r)),
+    Term,
+};
+
+Term: Box<Expr> = {
+    <l:Term> <op:TermOp> <r:Factor> => Box::new(Expr::BinOp(op, l, r)),
+    Factor,
+};
+
+Factor: Box<Expr> = {
+    Num => Box::new(Expr::Num(<>)),
+    "true" => Box::new(Expr::Bool(true)),
+    "false" => Box::new(Expr::Bool(false)),
+    Id => Box::new(Expr::Id(<>)),
+    "(" <Expr> ")",
+    "{" <exprs:(<Expr> ";")*> <last:Expr?> "}" => {
+        let mut all_exprs = exprs;
+        if let Some(last_expr) = last {
+            all_exprs.push(last_expr);
+        }
+        Box::new(Expr::Do(all_exprs))
+    },
+    <op:UnOp> "(" <e:Expr> ")" => Box::new(Expr::UnOp(op, e)),
+    <op:TriOp> "(" <e1:Expr> "," <e2:Expr> "," <e3:Expr> ")" => Box::new(Expr::TriOp(op, e1, e2, e3)),
+};
+
+BinOp: BinaryOp = {
+    "==" => BinaryOp::Eq,
+    "<" => BinaryOp::Lt,
+};
+
+TermOp: BinaryOp = {
+    "+" => BinaryOp::Add,
+    "-" => BinaryOp::Sub,
+};
+
+UnOp: UnaryOp = {
+    "add1" => UnaryOp::Add1,
+    "sub1" => UnaryOp::Sub1,
+    "isZero" => UnaryOp::IsZero,
+    "isNum" => UnaryOp::IsNum,
+    "!" => UnaryOp::Not,
+    "isPair" => UnaryOp::IsPair,
+    "left" => UnaryOp::Left,
+    "right" => UnaryOp::Right,
+    "isList" => UnaryOp::IsList,
+    "isVector" => UnaryOp::IsVector,
+    "vectorLength" => UnaryOp::VectorLength,
+};
+
+TriOp: TernaryOp = {
+    "vectorSet" => TernaryOp::VectorSet,
+};
+
+Num: i64 = {
+    r"-?[0-9]+" => i64::from_str(<>).unwrap(),
+};
+
+Id: String = {
+    r"[a-zA-Z][a-zA-Z0-9_]*" => <>.to_string(),
+};
