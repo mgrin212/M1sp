@@ -232,6 +232,7 @@ fn parse_expr(input: &str) -> IResult<&str, Expr> {
         parse_call_expr,
     ))(input)
 }
+
 fn parse_multiple_expr(input: &str) -> IResult<&str, Vec<Expr>> {
     many0(ws(parse_expr))(input)
 }
@@ -240,7 +241,7 @@ pub fn parse(input: &str) -> Result<Vec<Expr>, String> {
     match parse_multiple_expr(input) {
         Ok((remaining, exprs)) => {
             if remaining.trim().is_empty() {
-                Ok((exprs))
+                Ok(exprs)
             } else {
                 Err(format!(
                     "Parsing incomplete. Remaining input: '{}'",
