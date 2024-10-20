@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, ops};
 
 pub fn test() {
     println!("From another File");
@@ -11,8 +11,21 @@ pub enum Register {
     X2,
     X3,
     X4,
+    X5,
+    X6,
+    X7,
+    X8,
+    X9,
+    X10,
+    X11,
+    X12,
+    X13,
+    X14,
+    X15,
     X16,
     Sp,
+    Lr,
+    Fp,
 }
 
 #[derive(Clone, Debug)]
@@ -20,6 +33,7 @@ pub enum Operand {
     Reg(Register),
     Imm(i64),
     MemOffset(Box<Operand>, Box<Operand>),
+    RegOffset(Register, i64)
 }
 
 #[derive(Clone, Debug)]
@@ -66,9 +80,14 @@ impl fmt::Display for Operand {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Operand::Reg(r) => write!(f, "{}", string_of_register(r)),
-            Operand::Imm(i) => write!(f, "#{}", i.to_string()),
-            Operand::MemOffset(offset, base) => {
-                write!(f, "[{}, {}]", base, offset)
+            Operand::Imm(i) => write!(f, "#{}", i),
+            Operand::MemOffset(offset, base) => write!(f, "[{}, {}]", base, offset),
+            Operand::RegOffset(reg, offset) => {
+                if *offset >= 0 {
+                    write!(f, "[{}, #{}]", string_of_register(reg), offset)
+                } else {
+                    write!(f, "[{}, #-{}]", string_of_register(reg), offset.abs())
+                }
             }
         }
     }
@@ -81,8 +100,47 @@ pub fn string_of_register(reg: &Register) -> String {
         Register::X2 => String::from("X2"),
         Register::X3 => String::from("X3"),
         Register::X4 => String::from("X4"),
+        Register::X5 => String::from("X5"),
+        Register::X6 => String::from("X6"),
+        Register::X7 => String::from("X7"),
+        Register::X8 => String::from("X8"),
+        Register::X9 => String::from("X9"),
+        Register::X10 => String::from("X10"),
+        Register::X11 => String::from("X11"),
+        Register::X12 => String::from("X12"),
+        Register::X13 => String::from("X13"),
+        Register::X14 => String::from("X14"),
+        Register::X15 => String::from("X15"),
         Register::X16 => String::from("X16"),
         Register::Sp => String::from("sp"),
+        Register::Lr => String::from("lr"),
+        Register::Fp => String::from("fp"),
+    }
+}
+
+impl ops::Add<i32> for Register {
+    type Output = Register;
+
+    fn add(self, rhs: i32) -> Self::Output {
+        match rhs {
+            1 => Self::X1,
+            2 => Self::X2,
+            3 => Self::X3,
+            4 => Self::X4,
+            5 => Self::X5,
+            6 => Self::X6,
+            7 => Self::X7,
+            8 => Self::X8,
+            9 => Self::X9,
+            10 => Self::X10,
+            11 => Self::X11,
+            12 => Self::X12,
+            13 => Self::X13,
+            14 => Self::X14,
+            15 => Self::X15,
+            16 => Self::X16,
+            _ => Self::X0,
+        }
     }
 }
 
@@ -94,8 +152,21 @@ impl fmt::Display for Register {
             Register::X2 => write!(f, "X2"),
             Register::X3 => write!(f, "X3"),
             Register::X4 => write!(f, "X4"),
+            Register::X5 => write!(f, "X5"),
+            Register::X6 => write!(f, "X7"),
+            Register::X7 => write!(f, "X7"),
+            Register::X8 => write!(f, "X8"),
+            Register::X9 => write!(f, "X9"),
+            Register::X10 => write!(f, "X10"),
+            Register::X11 => write!(f, "X11"),
+            Register::X12 => write!(f, "X12"),
+            Register::X13 => write!(f, "X13"),
+            Register::X14 => write!(f, "X14"),
+            Register::X15 => write!(f, "X15"),
             Register::X16 => write!(f, "X16"),
             Register::Sp => write!(f, "sp"),
+            Register::Lr => write!(f, "lr"),
+            Register::Fp => write!(f, "fp"),
         }
     }
 }

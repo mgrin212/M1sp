@@ -37,6 +37,8 @@ pub enum Expr {
     If(Box<Expr>, Box<Expr>, Box<Expr>),
     Let(Vec<(String, Box<Expr>)>, Box<Expr>),
     Do(Vec<Expr>),
+    Define(String, Vec<String>, Box<Expr>),
+    Call(String, Vec<Expr>),
 }
 
 fn ws<'a, F: 'a, O>(inner: F) -> impl FnMut(&'a str) -> IResult<&'a str, O>
@@ -127,6 +129,23 @@ fn parse_if_expr(input: &str) -> IResult<&str, Expr> {
     )(input)
 }
 
+fn parse_call_expr(input: &str) -> IResult<&str, Expr> {
+    map(
+        delimited(
+            char('('),
+            tuple((
+                ws(map(parse_id, |expr| match expr {
+                    Expr::Id(s) => s,
+                    _ => unreachable!(),
+                })),
+                many0(ws(parse_expr)),
+            )),
+            char(')'),
+        ),
+        |(func, args)| Expr::Call(func, args),
+    )(input)
+}
+
 fn parse_let_binding(input: &str) -> IResult<&str, (String, Box<Expr>)> {
     delimited(
         char('('),
@@ -169,6 +188,36 @@ fn parse_do_expr(input: &str) -> IResult<&str, Expr> {
     )(input)
 }
 
+fn parse_def_expr(input: &str) -> IResult<&str, Expr> {
+    map(
+        delimited(
+            char('('),
+            preceded(
+                ws(tag("define")),
+                tuple((
+                    delimited(
+                        char('('),
+                        tuple((
+                            ws(map(parse_id, |expr| match expr {
+                                Expr::Id(s) => s,
+                                _ => unreachable!(),
+                            })),
+                            many0(ws(map(parse_id, |expr| match expr {
+                                Expr::Id(s) => s,
+                                _ => unreachable!(),
+                            }))),
+                        )),
+                        char(')'),
+                    ),
+                    ws(parse_expr),
+                )),
+            ),
+            char(')'),
+        ),
+        |((name, params), body)| Expr::Define(name, params, Box::new(body)),
+    )(input)
+}
+
 fn parse_expr(input: &str) -> IResult<&str, Expr> {
     alt((
         parse_num,
@@ -179,9 +228,10 @@ fn parse_expr(input: &str) -> IResult<&str, Expr> {
         parse_if_expr,
         parse_let_expr,
         parse_do_expr,
+        parse_def_expr,
+        parse_call_expr,
     ))(input)
 }
-
 fn parse_multiple_expr(input: &str) -> IResult<&str, Vec<Expr>> {
     many0(ws(parse_expr))(input)
 }
@@ -190,7 +240,7 @@ pub fn parse(input: &str) -> Result<Vec<Expr>, String> {
     match parse_multiple_expr(input) {
         Ok((remaining, exprs)) => {
             if remaining.trim().is_empty() {
-                Ok(exprs)
+                Ok((exprs))
             } else {
                 Err(format!(
                     "Parsing incomplete. Remaining input: '{}'",

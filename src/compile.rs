@@ -168,6 +168,60 @@ pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr)
             .into_iter()
             .flat_map(|e| compile_expr(symtab, stack_index, e))
             .collect(),
+        Expr::Define(name, args, body) => {
+            let mut new_symtab = symtab.clone();
+            let mut directives = vec![
+                Label(name.clone()),
+                Sub(Reg(Sp), Imm(16)),
+                Str(RegOffset(Sp, 8), Reg(Lr)),
+                Str(RegOffset(Sp, 0), Reg(Fp)),
+                Mov(Reg(Fp), Reg(Sp)),
+            ];
+
+            // Store arguments from registers to stack
+            for (i, arg) in args.iter().enumerate() {
+                directives.push(Str(RegOffset(Fp, 16 + (i as i64 * 8)), Reg(X0 + i as i32)));
+                new_symtab.insert(arg.clone(), 16 + (i as i64 * 8));
+            }
+
+            let body_code = compile_expr(&new_symtab, -16, *body);
+            directives.extend(body_code);
+            directives.extend(vec![
+                Ldr(Reg(Fp), RegOffset(Sp, 0)),
+                Ldr(Reg(Lr), RegOffset(Sp, 8)),
+                Add(Reg(Sp), Imm(16)),
+                Ret,
+            ]);
+            directives
+        }
+
+        Expr::Call(f, args) => {
+            let mut directives = Vec::new();
+            let len = args.len();
+
+            // Compile arguments and store them on the stack
+            for (i, arg) in args.into_iter().enumerate().rev() {
+                let arg_code = compile_expr(symtab, stack_index - (i as i64 * 8), arg);
+                directives.extend(arg_code);
+                directives.push(Str(RegOffset(Sp, -(8 + (i as i64 * 8))), Reg(X0)));
+            }
+
+            // Load arguments from stack into registers
+            for i in 0..len.min(8) {
+                // Assuming we use up to 8 registers for arguments
+                directives.push(Ldr(
+                    Reg(X0 + i as i32),
+                    RegOffset(Sp, -(8 + ((len - 1 - i) as i64 * 8))),
+                ));
+            }
+
+            // Adjust stack pointer, call function, and readjust stack pointer
+            directives.push(Sub(Reg(Sp), Imm(16 + (len as i64 * 8))));
+            directives.push(Bl(f));
+            directives.push(Add(Reg(Sp), Imm(16 + (len as i64 * 8))));
+
+            directives
+        }
         _ => vec![],
     }
 }

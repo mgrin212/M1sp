@@ -5,7 +5,7 @@ mod compile;
 mod utils;
 
 use asm::string_of_directive;
-use ast::parse;
+use ast::{parse, Expr};
 use compile::compile;
 use std::env;
 use std::fs::{self, File};
@@ -36,7 +36,8 @@ fn parse_and_compile(contents: &str) -> Result<String, String> {
 }
 
 fn parse_file(path: &Path) -> Result<(), String> {
-    let contents = read_file(path).map_err(|e| format!("Error reading file: {}", e))?;
+    let mut contents = read_file(path).map_err(|e| format!("Error reading file: {}", e))?;
+    contents.replace('\n', "");
     let output = parse_and_compile(&contents)?;
     println!("{}", output);
     Ok(())
@@ -44,7 +45,7 @@ fn parse_file(path: &Path) -> Result<(), String> {
 
 fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
-    
+
     if args.len() > 1 {
         // If an argument is provided, compile the specified file
         let input_file = Path::new(&args[1]);
@@ -57,8 +58,8 @@ fn main() -> Result<(), String> {
         return Err("Samples directory does not exist".to_string());
     }
 
-    let entries = fs::read_dir(samples_dir)
-        .map_err(|e| format!("Error reading directory: {}", e))?;
+    let entries =
+        fs::read_dir(samples_dir).map_err(|e| format!("Error reading directory: {}", e))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| format!("Error reading directory entry: {}", e))?;
@@ -73,3 +74,4 @@ fn main() -> Result<(), String> {
 
     Ok(())
 }
+
