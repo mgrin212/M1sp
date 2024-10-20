@@ -1,0 +1,49 @@
+use std::str::FromStr;
+
+grammar;
+
+pub Expr: Box<Expr> = {
+    Num => Box::new(Expr::Num(<>)),
+    Id => Box::new(Expr::Id(<>)),
+    "true" => Box::new(Expr::Bool(true)),
+    "false" => Box::new(Expr::Bool(false)),
+    "()" => Box::new(Expr::Unit),
+    "(" <UnPrim> <Expr> ")" => Box::new(Expr::UnOp(<>)),
+    "(" <BinPrim> <Expr> <Expr> ")" => Box::new(Expr::BinOp(<>)),
+    "(" "if" <Expr> <Expr> <Expr> ")" => Box::new(Expr::If(<>)),
+    "(" "let" "(" <Bindings> ")" <Expr> ")" => Box::new(Expr::Let(<>)),
+    "(" "do" <Expr+> ")" => Box::new(Expr::Do(<>)),
+};
+
+Bindings: Vec<(String, Box<Expr>)> = {
+    "(" <Id> <Expr> ")" => vec![(<>)],
+    <Bindings> "(" <Id> <Expr> ")" => {
+        let mut bindings = <>;
+        bindings.push((<>));
+        bindings
+    },
+};
+
+UnPrim: UnaryOp = {
+    "add1" => UnaryOp::Add1,
+    "sub1" => UnaryOp::Sub1,
+    "zero?" => UnaryOp::IsZero,
+    "num?" => UnaryOp::IsNum,
+    "not" => UnaryOp::Not,
+};
+
+BinPrim: BinaryOp = {
+    "+" => BinaryOp::Add,
+    "-" => BinaryOp::Sub,
+    "=" => BinaryOp::Eq,
+    "<" => BinaryOp::Lt,
+};
+
+
+Num: i64 = {
+    r"-?[0-9]+" => i64::from_str(<>).unwrap(),
+};
+
+Id: String = {
+    r"[a-zA-Z][a-zA-Z0-9_-]*" => <>.to_string(),
+};

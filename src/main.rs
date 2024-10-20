@@ -3,9 +3,11 @@ mod assemble;
 mod ast;
 mod compile;
 mod utils;
+use lalrpop_util::lalrpop_mod;
 
+lalrpop_mod!(pub grammar);
 use asm::string_of_directive;
-use ast::{parse, Expr};
+use ast::*;
 use compile::compile;
 use std::env;
 use std::fs::{self, File};
@@ -21,7 +23,7 @@ fn read_file(path: &Path) -> io::Result<String> {
 }
 
 fn parse_and_compile(contents: &str) -> Result<String, String> {
-    let parsed = parse(contents);
+    let parsed = grammar::ExprParser::new().parse(contents);
     let mut output = String::new();
     if let Ok(expr_vec) = parsed {
         for expr in expr_vec {

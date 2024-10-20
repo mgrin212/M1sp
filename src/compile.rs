@@ -8,7 +8,7 @@ use crate::{
         Operand::{self, *},
         Register::*,
     },
-    ast::{BinPrim, Expr, UnPrim},
+    ast::{BinaryOp, Expr, UnaryOp},
     utils::gensym,
 };
 
@@ -60,18 +60,18 @@ pub fn stack_address(index: i64) -> Operand {
     MemOffset(Box::new(Imm(index)), Box::new(Reg(Sp)))
 }
 
-fn compile_binary_primitive(stack_index: i64, expr: BinPrim) -> Vec<Directive> {
+fn compile_binary_primitive(stack_index: i64, expr: BinaryOp) -> Vec<Directive> {
     match expr {
-        BinPrim::Plus => vec![
+        BinaryOp::Add => vec![
             Ldr(Reg(X1), stack_address(stack_index)),
             Add(Reg(X0), Reg(X1)),
         ],
-        BinPrim::Minus => vec![
+        BinaryOp::Sub => vec![
             Mov(Reg(X1), Reg(X0)),
             Ldr(Reg(X0), stack_address(stack_index)),
             Sub(Reg(X0), Reg(X1)),
         ],
-        BinPrim::Eq => [
+        BinaryOp::Eq => [
             vec![
                 Ldr(Reg(X1), stack_address(stack_index)),
                 Cmp(Reg(X1), Reg(X0)),
@@ -79,7 +79,7 @@ fn compile_binary_primitive(stack_index: i64, expr: BinPrim) -> Vec<Directive> {
             zf_to_bool(),
         ]
         .concat(),
-        BinPrim::Lt => [
+        BinaryOp::Lt => [
             vec![
                 Ldr(Reg(X1), stack_address(stack_index)),
                 Cmp(Reg(X1), Reg(X0)),
@@ -91,31 +91,31 @@ fn compile_binary_primitive(stack_index: i64, expr: BinPrim) -> Vec<Directive> {
     }
 }
 
-fn compile_unary_primitive(expr: UnPrim) -> Vec<Directive> {
+fn compile_unary_primitive(expr: UnaryOp) -> Vec<Directive> {
     match expr {
-        UnPrim::Add1 => vec![Add(Reg(X0), operand_of_num(1))],
-        UnPrim::Not => [vec![Cmp(Reg(X0), operand_of_bool(false))], zf_to_bool()].concat(),
-        UnPrim::Sub1 => vec![Sub(Reg(X0), operand_of_num(1))],
-        UnPrim::IsNum => [
+        UnaryOp::Add1 => vec![Add(Reg(X0), operand_of_num(1))],
+        UnaryOp::Not => [vec![Cmp(Reg(X0), operand_of_bool(false))], zf_to_bool()].concat(),
+        UnaryOp::Sub1 => vec![Sub(Reg(X0), operand_of_num(1))],
+        UnaryOp::IsNum => [
             vec![And(Reg(X0), Imm(NUM_MASK)), Cmp(Reg(X0), Imm(NUM_TAG))],
             zf_to_bool(),
         ]
         .concat(),
-        UnPrim::IsZero => [vec![Cmp(Reg(X0), operand_of_num(0))], zf_to_bool()].concat(),
+        UnaryOp::IsZero => [vec![Cmp(Reg(X0), operand_of_num(0))], zf_to_bool()].concat(),
+        _ => vec![],
     }
 }
 pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr) -> Vec<Directive> {
     match expr {
-        Expr::Nil => vec![Mov(Reg(X0), Imm(NIL_TAG))],
+        Expr::Unit => vec![Mov(Reg(X0), Imm(NIL_TAG))],
         Expr::Num(x) => vec![Mov(Reg(X0), operand_of_num(x))],
-        Expr::True => vec![Mov(Reg(X0), operand_of_bool(true))],
-        Expr::False => vec![Mov(Reg(X0), operand_of_bool(false))],
-        Expr::UnPrim(p1, expr) => [
+        Expr::Bool(b) => vec![Mov(Reg(X0), operand_of_bool(b))],
+        Expr::UnOp(p1, expr) => [
             compile_expr(symtab, stack_index, *expr),
             compile_unary_primitive(p1),
         ]
         .concat(),
-        Expr::BinPrim(f, arg1, arg2) => [
+        Expr::BinOp(f, arg1, arg2) => [
             compile_expr(symtab, stack_index, *arg1),
             vec![Str(stack_address(stack_index), Reg(X0))],
             compile_expr(symtab, stack_index - 8, *arg2),
@@ -168,60 +168,6 @@ pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr)
             .into_iter()
             .flat_map(|e| compile_expr(symtab, stack_index, e))
             .collect(),
-        Expr::Define(name, args, body) => {
-            let mut new_symtab = symtab.clone();
-            let mut directives = vec![
-                Label(name.clone()),
-                Sub(Reg(Sp), Imm(16)),
-                Str(RegOffset(Sp, 8), Reg(Lr)),
-                Str(RegOffset(Sp, 0), Reg(Fp)),
-                Mov(Reg(Fp), Reg(Sp)),
-            ];
-
-            // Store arguments from registers to stack
-            for (i, arg) in args.iter().enumerate() {
-                directives.push(Str(RegOffset(Fp, 16 + (i as i64 * 8)), Reg(X0 + i as i32)));
-                new_symtab.insert(arg.clone(), 16 + (i as i64 * 8));
-            }
-
-            let body_code = compile_expr(&new_symtab, -16, *body);
-            directives.extend(body_code);
-            directives.extend(vec![
-                Ldr(Reg(Fp), RegOffset(Sp, 0)),
-                Ldr(Reg(Lr), RegOffset(Sp, 8)),
-                Add(Reg(Sp), Imm(16)),
-                Ret,
-            ]);
-            directives
-        }
-
-        Expr::Call(f, args) => {
-            let mut directives = Vec::new();
-            let len = args.len();
-
-            // Compile arguments and store them on the stack
-            for (i, arg) in args.into_iter().enumerate().rev() {
-                let arg_code = compile_expr(symtab, stack_index - (i as i64 * 8), arg);
-                directives.extend(arg_code);
-                directives.push(Str(RegOffset(Sp, -(8 + (i as i64 * 8))), Reg(X0)));
-            }
-
-            // Load arguments from stack into registers
-            for i in 0..len.min(8) {
-                // Assuming we use up to 8 registers for arguments
-                directives.push(Ldr(
-                    Reg(X0 + i as i32),
-                    RegOffset(Sp, -(8 + ((len - 1 - i) as i64 * 8))),
-                ));
-            }
-
-            // Adjust stack pointer, call function, and readjust stack pointer
-            directives.push(Sub(Reg(Sp), Imm(16 + (len as i64 * 8))));
-            directives.push(Bl(f));
-            directives.push(Add(Reg(Sp), Imm(16 + (len as i64 * 8))));
-
-            directives
-        }
         _ => vec![],
     }
 }
