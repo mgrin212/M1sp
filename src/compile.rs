@@ -147,7 +147,6 @@ pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr)
         Expr::Let(bindings, body) => {
             let mut compiled = Vec::new();
             let mut new_symtab = symtab.clone();
-
             for (i, (var, exp)) in bindings.iter().enumerate() {
                 let mut exp_code =
                     compile_expr(&new_symtab, stack_index - (8 * i as i64), *exp.clone());
@@ -169,6 +168,31 @@ pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr)
             .into_iter()
             .flat_map(|e| compile_expr(symtab, stack_index, *e))
             .collect(),
+        Expr::FuncCall(name, args) => {
+            let mut directives = Vec::new();
+
+            let label_name = match *name {
+                Expr::Id(s) => s,
+                _ => "".to_string(),
+            };
+            // Compile arguments in reverse order
+            for (i, arg) in args.clone().into_iter().rev().enumerate() {
+                match *arg {
+                    _ => {
+                        directives.extend(compile_expr(
+                            symtab,
+                            stack_index - ((i + 1) as i64 * 8),
+                            *arg,
+                        ));
+                        directives.push(Str(RegOffset(Sp, -(i as i64 + 1 as i64) * 8), Reg(X0)));
+                    }
+                }
+            }
+
+            directives.push(Bl(label_name));
+            directives
+        }
+
         Expr::FuncDef(name, args, body) => {
             let mut directives = Vec::new();
             let label_name = if name == "main".to_string() {
@@ -179,14 +203,32 @@ pub fn compile_expr(symtab: &HashMap<String, i64>, stack_index: i64, expr: Expr)
             directives.push(Label(label_name));
 
             let prologue = vec![
-                Stp(Reg(Fp), Reg(Lr), RegOffset(Sp, -16)),
-                Mov(Reg(Fp), Reg(Sp)),
+                Sub(Reg(Sp), Imm(32)),
+                Stp(Reg(Fp), Reg(Lr), RegOffset(Sp, 16)),
+                Raw("add fp, sp, #16".to_string()),
             ];
 
-            let epilogue = vec![Ldp(Reg(Fp), Reg(Lr), RegOffset(Sp, 16)), Ret];
+            let len = args.len();
+            // Create a new symtab for the function's scope
+            let mut func_symtab = symtab.clone();
+            dbg!(stack_index);
+            for (i, arg) in args.iter().enumerate() {
+                func_symtab.insert(
+                    arg.clone(),
+                    (len as i64 - i as i64 + 1 as i64) * 8 - stack_index,
+                );
+            }
+
+            let body_code = compile_expr(&func_symtab, (len as i64) * 8 - stack_index, *body);
+
+            let epilogue = vec![
+                Raw("ldp fp, lr, [sp, 16]".to_string()),
+                (Add(Reg(Sp), Imm(32))),
+                Ret,
+            ];
 
             directives.extend(prologue);
-            directives.extend(compile_expr(symtab, stack_index, *body));
+            directives.extend(body_code);
             directives.extend(epilogue);
             directives
         }

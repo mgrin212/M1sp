@@ -35,21 +35,30 @@ If: Expr = {
 BinExpr: Expr = {
     <l:BinExpr> "+" <r:Factor> => Expr::BinOp(BinaryOp::Add, Box::new(l), Box::new(r)),
     <l:BinExpr> "-" <r:Factor> => Expr::BinOp(BinaryOp::Sub, Box::new(l), Box::new(r)),
+    <l:BinExpr> "==" <r:Factor> => Expr::BinOp(BinaryOp::Eq, Box::new(l), Box::new(r)),
     <l:BinExpr> "<" <r:Factor> => Expr::BinOp(BinaryOp::Lt, Box::new(l), Box::new(r)),
-    <l:BinExpr> "=" <r:Factor> => Expr::BinOp(BinaryOp::Eq, Box::new(l), Box::new(r)),
     Factor,
 }
 
 Factor: Expr = {
     Num,
     "(" <e:Expr> ")" => e,
+    FuncCall,
     Identifier => Expr::Id(<>),
     UnaryExpr,
+}
+
+FuncCall: Expr = {
+    <func:Identifier> "(" <args:Comma<Expr>> ")" => 
+        Expr::FuncCall(Box::new(Expr::Id(func)), args.into_iter().map(Box::new).collect()),
 }
 
 UnaryExpr: Expr = {
     "add1" <e:Factor> => Expr::UnOp(UnaryOp::Add1, Box::new(e)),
     "sub1" <e:Factor> => Expr::UnOp(UnaryOp::Sub1, Box::new(e)),
+    "isZero" <e:Factor> => Expr::UnOp(UnaryOp::IsZero, Box::new(e)),
+    "isNum" <e:Factor> => Expr::UnOp(UnaryOp::IsNum, Box::new(e)),
+    "!" <e:Factor> => Expr::UnOp(UnaryOp::Not, Box::new(e)),
 }
 
 Num: Expr = {

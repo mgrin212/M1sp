@@ -1,13 +1,12 @@
-fn main() {
-    let x = 5 + 3 in
-    if x < 10 {
-        add1(x)
-    } else {
-        sub1(x)
-    }
+
+fn fib(n){
+  if n < 2 {
+  n
+} else {
+  2
+}
 }
 
-fn test(){
-  let x = 5 + 3 in
-  x + 12
+fn main() {
+    fib(1)
 }
