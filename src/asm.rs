@@ -1,9 +1,5 @@
 use std::{fmt, ops};
 
-pub fn test() {
-    println!("From another File");
-}
-
 #[derive(Clone, Debug)]
 pub enum Register {
     X0,

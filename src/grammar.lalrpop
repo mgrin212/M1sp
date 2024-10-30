@@ -4,85 +4,53 @@ use crate::ast::{Expr, BinaryOp, UnaryOp, TernaryOp};
 grammar;
 
 pub Expr: Box<Expr> = {
-    Let,
-    If,
-    BinaryExpr,
-};
-
-Let: Box<Expr> = {
-    "let" <bindings:Bindings> "in" <body:Expr> => Box::new(Expr::Let(bindings, body)),
-};
+    Num => Box::new(Expr::Num(<>)),
+    Id => Box::new(Expr::Id(<>)),
+    "true" => Box::new(Expr::Bool(true)),
+    "false" => Box::new(Expr::Bool(false)),
+    "()" => Box::new(Expr::Unit),
+    "(" <op:UnPrim> <e:Expr> ")" => Box::new(Expr::UnOp(op, e)),
+    "(" <op:BinPrim> <e1:Expr> <e2:Expr> ")" => Box::new(Expr::BinOp(op, e1, e2)),
+    "(" <op:TriPrim> <e1:Expr> <e2:Expr> <e3:Expr> ")" => Box::new(Expr::TriOp(op, e1, e2, e3)),
+    "(" "if" <cond:Expr> <then:Expr> <else_:Expr> ")" => Box::new(Expr::If(cond, then, else_)),
+    "(" "let" "(" <bindings:Bindings> ")" <body:Expr> ")" => Box::new(Expr::Let(bindings, body)),
+    "(" "do" <exprs:Expr+> ")" => Box::new(Expr::Do(exprs)),
+}
 
 Bindings: Vec<(String, Box<Expr>)> = {
-    <binding:Binding> => vec![binding],
-    <mut bindings:Bindings> "," <binding:Binding> => {
-        bindings.push(binding);
+    "(" <name:Id> <expr:Expr> ")" => vec![(name, expr)],
+    <mut bindings:Bindings> "(" <name:Id> <expr:Expr> ")" => {
+        bindings.push((name, expr));
         bindings
     },
 };
 
-Binding: (String, Box<Expr>) = {
-    <id:Id> "=" <expr:Expr> => (id, expr),
-};
-
-If: Box<Expr> = {
-    "if" "(" <cond:Expr> ")" <then_branch:Expr> "else" <else_branch:Expr> => 
-        Box::new(Expr::If(cond, then_branch, else_branch)),
-};
-
-BinaryExpr: Box<Expr> = {
-    <l:BinaryExpr> <op:BinOp> <r:Term> => Box::new(Expr::BinOp(op, l, r)),
-    Term,
-};
-
-Term: Box<Expr> = {
-    <l:Term> <op:TermOp> <r:Factor> => Box::new(Expr::BinOp(op, l, r)),
-    Factor,
-};
-
-Factor: Box<Expr> = {
-    Num => Box::new(Expr::Num(<>)),
-    "true" => Box::new(Expr::Bool(true)),
-    "false" => Box::new(Expr::Bool(false)),
-    Id => Box::new(Expr::Id(<>)),
-    "(" <Expr> ")",
-    "{" <exprs:(<Expr> ";")*> <last:Expr?> "}" => {
-        let mut all_exprs = exprs;
-        if let Some(last_expr) = last {
-            all_exprs.push(last_expr);
-        }
-        Box::new(Expr::Do(all_exprs))
-    },
-    <op:UnOp> "(" <e:Expr> ")" => Box::new(Expr::UnOp(op, e)),
-    <op:TriOp> "(" <e1:Expr> "," <e2:Expr> "," <e3:Expr> ")" => Box::new(Expr::TriOp(op, e1, e2, e3)),
-};
-
-BinOp: BinaryOp = {
-    "==" => BinaryOp::Eq,
-    "<" => BinaryOp::Lt,
-};
-
-TermOp: BinaryOp = {
-    "+" => BinaryOp::Add,
-    "-" => BinaryOp::Sub,
-};
-
-UnOp: UnaryOp = {
+UnPrim: UnaryOp = {
     "add1" => UnaryOp::Add1,
     "sub1" => UnaryOp::Sub1,
-    "isZero" => UnaryOp::IsZero,
-    "isNum" => UnaryOp::IsNum,
-    "!" => UnaryOp::Not,
-    "isPair" => UnaryOp::IsPair,
+    "zero?" => UnaryOp::IsZero,
+    "num?" => UnaryOp::IsNum,
+    "not" => UnaryOp::Not,
+    "pair?" => UnaryOp::IsPair,
     "left" => UnaryOp::Left,
     "right" => UnaryOp::Right,
-    "isList" => UnaryOp::IsList,
-    "isVector" => UnaryOp::IsVector,
-    "vectorLength" => UnaryOp::VectorLength,
+    "list?" => UnaryOp::IsList,
+    "vector?" => UnaryOp::IsVector,
+    "vector-length" => UnaryOp::VectorLength,
 };
 
-TriOp: TernaryOp = {
-    "vectorSet" => TernaryOp::VectorSet,
+BinPrim: BinaryOp = {
+    "+" => BinaryOp::Add,
+    "-" => BinaryOp::Sub,
+    "=" => BinaryOp::Eq,
+    "<" => BinaryOp::Lt,
+    "pair" => BinaryOp::Pair,
+    "vector" => BinaryOp::Vector,
+    "vector-get" => BinaryOp::VectorGet,
+};
+
+TriPrim: TernaryOp = {
+    "vector-set" => TernaryOp::VectorSet,
 };
 
 Num: i64 = {
@@ -90,5 +58,5 @@ Num: i64 = {
 };
 
 Id: String = {
-    r"[a-zA-Z][a-zA-Z0-9_]*" => <>.to_string(),
+    r"[a-zA-Z][a-zA-Z0-9_-]*" => <>.to_string(),
 };
