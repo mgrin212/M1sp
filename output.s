@@ -1,63 +1,38 @@
 .global _lisp_entry
 .extern _lisp_error
 _lisp_entry:
-	mov X0, #168
-	str X0, [sp, #-8]
-	mov X0, #400
+	sub sp, sp, #48
+	mov X0, #4
 	str X0, [sp, #-16]
-	mov X0, #159
-	str X0, [sp, #-24]
-	ldr X0, [sp, #-8]
-	add X0, X0, #4
-	ldr X0, [sp, #-16]
-	sub X0, X0, #4
-	mov X0, #0
-	cmp X0, #0
-	mov X0, #0
-	cset X0, eq
-	lsl X0, X0, #7
-	orr X0, X0, #31
-	ldr X0, [sp, #-8]
-	and X0, X0, #3
-	cmp X0, #0
-	mov X0, #0
-	cset X0, eq
-	lsl X0, X0, #7
-	orr X0, X0, #31
-	ldr X0, [sp, #-24]
-	cmp X0, #31
-	mov X0, #0
-	cset X0, eq
-	lsl X0, X0, #7
-	orr X0, X0, #31
-	ldr X0, [sp, #-8]
+	mov X0, #8
 	str X0, [sp, #-32]
+	sub sp, sp, #64
+	stp fp, lr, [sp]
 	ldr X0, [sp, #-16]
-	ldr X1, [sp, #-32]
-	add X0, X0, X1
-	ldr X0, [sp, #-8]
-	str X0, [sp, #-32]
-	ldr X0, [sp, #-16]
-	mov X1, X0
+	str X0, [sp, #-48]
 	ldr X0, [sp, #-32]
-	sub X0, X0, X1
-	ldr X0, [sp, #-8]
-	str X0, [sp, #-32]
-	ldr X0, [sp, #-16]
-	ldr X1, [sp, #-32]
-	cmp X1, X0
-	mov X0, #0
-	cset X0, eq
-	lsl X0, X0, #7
-	orr X0, X0, #31
-	ldr X0, [sp, #-8]
-	str X0, [sp, #-32]
-	ldr X0, [sp, #-16]
-	ldr X1, [sp, #-32]
-	cmp X1, X0
-	mov X0, #0
-	cset X0, lt
-	lsl X0, X0, #7
-	orr X0, X0, #31
+	str X0, [sp, #-64]
+	mov X0, #12
+	str X0, [sp, #-80]
+	bl _add
+	ldp fp, lr, [sp]
+	add sp, sp, #64
+	add sp, sp, #48
+	ret
+_add:
+	sub sp, sp, #48
+	stp fp, lr, [sp]
+	mov fp, sp
+	ldr X0, [sp, #-32]
+	str X0, [sp, #-96]
+	ldr X0, [sp, #-48]
+	str X0, [sp, #-128]
+	ldr X0, [sp, #-64]
+	ldr X1, [sp, #-128]
+	add X0, X0, X1
+	ldr X1, [sp, #-96]
+	add X0, X0, X1
+	ldp fp, lr, [sp]
+	add sp, sp, #48
 	ret
 

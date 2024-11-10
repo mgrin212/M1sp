@@ -1,7 +1,39 @@
 use std::str::FromStr;
-use crate::ast::{Expr, BinaryOp, UnaryOp, TernaryOp};
+use crate::ast::{Expr, BinaryOp, UnaryOp, TernaryOp, Definition, Program, TopLevelItem};
 
 grammar;
+
+pub Program: Program = {
+    <exps:TopLevel+> => {
+        let mut defs = Vec::new();
+        let mut expr = None;
+        for exp in exps {
+            match exp {
+                TopLevelItem::Def(def) => defs.push(def),
+                TopLevelItem::Expr(e) => {
+                    if expr.is_none() {
+                        expr = Some(e);
+                    } else {
+                        // If we already have an expression, wrap everything in a Do
+                        let prev = expr.unwrap();
+                        expr = Some(Box::new(Expr::Do(vec![prev, e])));
+                    }
+                }
+            }
+        }
+        Program(defs, *expr.unwrap_or(Box::new(Expr::Unit)))
+    }
+};
+
+pub TopLevel: TopLevelItem = {
+    Definition => TopLevelItem::Def(<>),
+    Expr => TopLevelItem::Expr(<>),
+};
+
+pub Definition: Definition = {
+    "(" "define" "(" <name:Id> <params:Id*> ")" <body:Expr> ")" => 
+        Definition(name, params, *body),
+};
 
 pub Expr: Box<Expr> = {
     Num => Box::new(Expr::Num(<>)),
@@ -15,7 +47,9 @@ pub Expr: Box<Expr> = {
     "(" "if" <cond:Expr> <then:Expr> <else_:Expr> ")" => Box::new(Expr::If(cond, then, else_)),
     "(" "let" "(" <bindings:Bindings> ")" <body:Expr> ")" => Box::new(Expr::Let(bindings, body)),
     "(" "do" <exprs:Expr+> ")" => Box::new(Expr::Do(exprs)),
-}
+    "(" <name:Id> <args:Expr*> ")" => Box::new(Expr::Call(name, args)),
+};
+
 
 Bindings: Vec<(String, Box<Expr>)> = {
     "(" <name:Id> <expr:Expr> ")" => vec![(name, expr)],

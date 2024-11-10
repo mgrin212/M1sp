@@ -10,8 +10,18 @@ pub enum Expr {
     If(Box<Expr>, Box<Expr>, Box<Expr>),
     Let(Vec<(String, Box<Expr>)>, Box<Expr>),
     Do(Vec<Box<Expr>>),
-    FuncDef(String, Vec<String>, Box<Expr>), 
-    FuncCall(Box<Expr>, Vec<Box<Expr>>),      
+    Call(String, Vec<Box<Expr>>),
+}
+
+#[derive(Debug, Clone)]
+pub struct Definition(pub String, pub Vec<String>, pub Expr);
+
+#[derive(Debug, Clone)]
+pub struct Program(pub Vec<Definition>, pub Expr);
+
+pub enum TopLevelItem {
+    Def(Definition),
+    Expr(Box<Expr>),
 }
 
 #[derive(Debug, Clone)]
@@ -44,3 +54,4 @@ pub enum BinaryOp {
 pub enum TernaryOp {
     VectorSet,
 }
+

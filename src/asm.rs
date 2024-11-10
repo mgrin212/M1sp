@@ -29,7 +29,7 @@ pub enum Operand {
     Reg(Register),
     Imm(i64),
     MemOffset(Box<Operand>, Box<Operand>),
-    RegOffset(Register, i64)
+    RegOffset(Register, i64),
 }
 
 #[derive(Clone, Debug)]
@@ -64,12 +64,14 @@ pub enum Directive {
     Ble(String),
     Br(Operand),
     Str(Operand, Operand),
+    StrBang(Operand, Operand),
     Ldr(Operand, Operand),
     Stp(Operand, Operand, Operand),
     Ldp(Operand, Operand, Operand),
     Bl(String),
     Ret,
     Comment(String),
+    Raw(String),
 }
 
 impl fmt::Display for Operand {
@@ -216,5 +218,7 @@ pub fn string_of_directive(directive: &Directive) -> String {
         Directive::Bl(dest) => format!("\tbl {}", label_name(dest)),
         Directive::Ret => "\tret".to_string(),
         Directive::Comment(s) => format!("// {}", s),
+        Directive::Raw(s) => format!("\t{}", s),
+        Directive::StrBang(dst, src) => format!("\tstr {}, {}!", src, dst),
     }
 }

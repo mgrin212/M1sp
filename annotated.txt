@@ -1,0 +1,24 @@
+.global _lisp_entry
+.extern _lisp_error
+_lisp_entry:
+	stp fp, lr, [sp, #-16]! sp = 0x000000016fdfee00 
+	mov X0, #8              sp = 0x000000016fdfedf0
+	str X0, [sp, #-16]!     sp = 0x000000016fdfede0 [8]
+	mov X0, #12
+	str X0, [sp, #-16]!     sp = 0x000000016fdfedd0 [12]
+	bl _add
+	add sp, sp, #32
+	ldp fp, lr, [sp], #16
+	ret
+_add:                       sp = 0x000000016fdfedd0
+	stp fp, lr, [sp, #-16]!   sp = 0x000000016fdfedc0
+	mov fp, sp
+	ldr X0, [sp, #16]         loading from sp + 16 (12)
+	str X0, [sp, #32]         overriding [8]
+	ldr X0, [sp, #24]
+	ldr X1, [sp, #32]
+	add X0, X0, X1
+	ldp fp, lr, [sp], #16
+	ret
+
+
