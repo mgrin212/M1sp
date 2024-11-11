@@ -1,2 +1,7 @@
-(define (add x y z) (+ x (+ y z)))
-(let ((a 1) (b 2)) (add a b 3))
+(define (myPlus x y) (+ x (+ y 1)))
+(define (fib n) 
+  (if (< n 2) 
+    n
+    (+ (fib (- n 1)) (fib (- n 2)))))
+
+(let ((x 7)) (fib x))

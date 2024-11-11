@@ -1,5 +1,7 @@
-use std::{fmt, ops};
+#![allow(dead_code)]
+#![allow(unused_variables)]
 
+use std::{fmt, ops};
 #[derive(Clone, Debug)]
 pub enum Register {
     X0,

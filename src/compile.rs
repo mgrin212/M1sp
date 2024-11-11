@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use std::collections::HashMap;
 
 use crate::{
@@ -247,7 +250,7 @@ pub fn compile_definitions(
     let ftab: HashMap<String, i64> = args
         .into_iter()
         .enumerate()
-        .map(|(i, arg)| (arg.clone(), (i as i64 + 2) * -16)) // Offset by 64 to account for caller's frame
+        .map(|(i, arg)| (arg.clone(), (i as i64 + 2) * -16))
         .collect();
 
     [

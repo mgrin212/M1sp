@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
 use std::fs::{self, File};
 use std::io::Write;
 use std::process::Command;

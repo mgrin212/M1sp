@@ -54,4 +54,3 @@ pub enum BinaryOp {
 pub enum TernaryOp {
     VectorSet,
 }
-
