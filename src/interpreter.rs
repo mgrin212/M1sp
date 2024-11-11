@@ -11,68 +11,66 @@ pub enum Value {
 }
 
 pub fn interpret(Program(defs, body): Program) -> Result<Value, Expr> {
-    interpret_expr(defs, HashMap::new(), &body)
+    interpret_expr(defs.as_slice(), &HashMap::new(), &body)
 }
 
-fn is_defn(defs: Vec<Definition>, name: String) -> bool {
-    match defs.into_iter().find(|d| d.0 == name) {
-        Some(_) => true,
-        _ => false,
-    }
+fn is_defn(defs: &[Definition], name: String) -> bool {
+    defs.iter().any(|d| d.0 == name)
 }
 
 pub fn interpret_expr(
-    defns: Vec<Definition>,
-    env: HashMap<String, Value>,
+    defns: &[Definition],
+    env: &HashMap<String, Value>,
     expr: &Expr,
 ) -> Result<Value, Expr> {
     match expr {
         Expr::Num(n) => Ok(Value::Number(*n)),
         Expr::Bool(b) => Ok(Value::Boolean(*b)),
         Expr::Id(s) if env.contains_key(s) => env.get(s).map(|r| Ok(r.clone())).unwrap(),
-        Expr::Id(s) if is_defn(defns.clone(), s.clone()) => Ok(Value::Function(s.clone())),
-        Expr::BinOp(op, e1, e2) => interp_binary_prim(defns.clone(), env, op, e1, e2),
-        Expr::UnOp(op, e) => interp_unary_prim(defns.clone(), env, op, e),
-        Expr::Call(f, args) => match defns.clone().into_iter().find(|d| d.0 == *f) {
-            Some(d) if args.len() == d.1.len() => {
-                let vals = args
-                    .into_iter()
-                    .map(|arg| interpret_expr(defns.clone(), env.clone(), arg))
-                    .flatten()
-                    .collect::<Vec<Value>>();
-                let fenv =
-                    d.1.into_iter()
-                        .zip(vals)
-                        .collect::<HashMap<String, Value>>();
-                interpret_expr(defns, fenv, &d.2)
-            }
-            _ => Err(expr.clone()),
-        },
-        Expr::If(cond, then_expr, else_expr) => {
-            match interpret_expr(defns.clone(), env.clone(), cond) {
-                Ok(Value::Boolean(true)) => interpret_expr(defns.clone(), env.clone(), then_expr),
-                Ok(Value::Boolean(false)) => interpret_expr(defns.clone(), env.clone(), else_expr),
-                _ => Err(expr.to_owned()),
+        Expr::Id(s) if is_defn(defns, s.clone()) => Ok(Value::Function(s.clone())),
+        Expr::BinOp(op, e1, e2) => interp_binary_prim(defns, env, op, e1, e2),
+        Expr::UnOp(op, e) => interp_unary_prim(defns, env, op, e),
+        Expr::Call(f, args) => {
+            if let Some(def) = defns.iter().find(|d| d.0 == *f) {
+                if args.len() != def.1.len() {
+                    return Err(expr.clone());
+                }
+
+                // Evaluate all arguments first
+                let mut new_env = HashMap::with_capacity(args.len());
+                for (param, arg) in def.1.iter().zip(args) {
+                    let val = interpret_expr(defns, env, arg)?;
+                    new_env.insert(param.clone(), val);
+                }
+
+                interpret_expr(defns, &new_env, &def.2)
+            } else {
+                Err(expr.clone())
             }
         }
+        Expr::If(cond, then_expr, else_expr) => match interpret_expr(defns, env, cond) {
+            Ok(Value::Boolean(true)) => interpret_expr(defns, env, then_expr),
+            Ok(Value::Boolean(false)) => interpret_expr(defns, env, else_expr),
+            _ => Err(expr.to_owned()),
+        },
         Expr::Let(vars, body) => {
             let mut f_env = env.clone();
             vars.into_iter()
-                .map(|(s, e)| (s, interpret_expr(defns.clone(), env.clone(), e)))
+                .map(|(s, e)| (s, interpret_expr(defns, env, e)))
                 .for_each(|(s, eval)| match eval {
                     Ok(v) => drop(f_env.insert(s.clone(), v)),
                     Err(_) => (),
                 });
 
-            interpret_expr(defns, f_env, body)
+            interpret_expr(defns, &f_env, body)
         }
         _ => Err(expr.clone()),
     }
 }
 
 fn interp_unary_prim(
-    defns: Vec<Definition>,
-    env: HashMap<String, Value>,
+    defns: &[Definition],
+    env: &HashMap<String, Value>,
     op: &UnaryOp,
     e: &Expr,
 ) -> Result<Value, Expr> {
@@ -94,16 +92,16 @@ fn interp_unary_prim(
 }
 
 fn interp_binary_prim(
-    defns: Vec<Definition>,
-    env: HashMap<String, Value>,
+    defns: &[Definition],
+    env: &HashMap<String, Value>,
     op: &BinaryOp,
     e1: &Expr,
     e2: &Expr,
 ) -> Result<Value, Expr> {
     match (
         op,
-        interpret_expr(defns.clone(), env.clone(), e1),
-        interpret_expr(defns.clone(), env.clone(), e2),
+        interpret_expr(defns, env, e1),
+        interpret_expr(defns, env, e2),
     ) {
         (BinaryOp::Add, Ok(Value::Number(n1)), Ok(Value::Number(n2))) => Ok(Value::Number(n1 + n2)),
         (BinaryOp::Sub, Ok(Value::Number(n1)), Ok(Value::Number(n2))) => Ok(Value::Number(n1 - n2)),

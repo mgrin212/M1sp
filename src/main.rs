@@ -47,7 +47,6 @@ fn compile_ast(program: Program) -> Result<String, String> {
 }
 
 fn interpret_ast(_program: Program) -> Result<String, String> {
-    dbg!(_program.clone());
     let output = interpret(_program);
     match output {
         Ok(v) => Ok(format!("{:?}", v)),
@@ -126,4 +125,3 @@ fn main() -> Result<(), String> {
         None => process_directory(Path::new("samples"), mode),
     }
 }
-
