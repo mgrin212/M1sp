@@ -72,6 +72,7 @@ pub enum Directive {
     Ret,
     Comment(String),
     Raw(String),
+    R_(String),
 }
 
 impl fmt::Display for Operand {
@@ -81,8 +82,10 @@ impl fmt::Display for Operand {
             Operand::Imm(i) => write!(f, "#{}", i),
             Operand::MemOffset(offset, base) => write!(f, "[{}, {}]", base, offset),
             Operand::RegOffset(reg, offset) => {
-                if *offset >= 0 {
+                if *offset > 0 {
                     write!(f, "[{}, #{}]", string_of_register(reg), offset)
+                } else if *offset == 0 {
+                    write!(f, "[{}]", string_of_register(reg))
                 } else {
                     write!(f, "[{}, #-{}]", string_of_register(reg), offset.abs())
                 }
@@ -220,5 +223,6 @@ pub fn string_of_directive(directive: &Directive) -> String {
         Directive::Comment(s) => format!("// {}", s),
         Directive::Raw(s) => format!("\t{}", s),
         Directive::StrBang(dst, src) => format!("\tstr {}, {}!", src, dst),
+        Directive::R_(s) => s.clone(),
     }
 }

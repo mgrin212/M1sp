@@ -25,7 +25,6 @@ fn parse_and_compile(contents: &str) -> Result<String, String> {
     let mut output = String::new();
     match parsed {
         Ok(program) => {
-            dbg!(program.clone());
             let directives = compile(program);
             for directive in directives {
                 output.push_str(&format!("{}\n", string_of_directive(&directive)));

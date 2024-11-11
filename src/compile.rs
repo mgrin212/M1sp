@@ -7,7 +7,7 @@ use crate::{
         Register::*,
     },
     ast::{BinaryOp, Expr, UnaryOp},
-    utils::gensym,
+    utils::{create_stack_frame, destroy_stack_frame, gensym},
     Definition, Program,
 };
 
@@ -115,7 +115,6 @@ pub fn compile_expr(
     stack_index: i64,
     expr: Expr,
 ) -> Vec<Directive> {
-    dbg!(expr.clone(), stack_index);
     match expr {
         Expr::Unit => vec![Mov(Reg(X0), Imm(NIL_TAG))],
         Expr::Num(x) => vec![Mov(Reg(X0), operand_of_num(x))],
@@ -203,23 +202,21 @@ pub fn compile_expr(
                 .enumerate()
                 .flat_map(|(i, arg)| {
                     [
-                        compile_expr(definitions, symtab, stack_index - (i as i64 * 16), *arg),
-                        vec![Str(stack_address(stack_index - (i as i64 * 16)), Reg(X0))],
+                        compile_expr(
+                            definitions,
+                            symtab,
+                            stack_index + ((i) as i64 * 8) + 16,
+                            *arg,
+                        ),
+                        vec![Str(
+                            stack_address(stack_index + ((i) as i64 * 8) + 16),
+                            Reg(X0),
+                        )],
                     ]
                     .concat()
                 })
                 .collect();
-            [
-                vec![Sub(Reg(Sp), Imm(64))],
-                vec![Raw("stp fp, lr, [sp]".to_string())],
-                compiled_args,
-                vec![
-                    Bl(name),
-                    Raw("ldp fp, lr, [sp]".to_string()),
-                    Add(Reg(Sp), Imm(64)),
-                ],
-            ]
-            .concat()
+            [compiled_args, vec![Bl(name)]].concat()
         }
         _ => vec![],
     }
@@ -243,26 +240,21 @@ pub fn compile_definitions(
     defs: &Vec<Definition>,
     Definition(name, args, body): &Definition,
 ) -> Vec<Directive> {
-    let stack_space = 48;
+    dbg!(args.clone());
+    let mut stack_space = args.len() as i64 * 8;
+    if stack_space % 16 == 8 {
+        stack_space += 8;
+    }
     let ftab: HashMap<String, i64> = args
         .into_iter()
         .enumerate()
-        .map(|(i, arg)| (arg.clone(), (i as i64 + 2) * -16)) // Offset by 64 to account for caller's frame
+        .map(|(i, arg)| (arg.clone(), stack_space + 16 + (i as i64) * 8)) // Offset by 64 to account for caller's frame
         .collect();
 
     [
-        vec![
-            Label(name.clone()),
-            Sub(Reg(Sp), Imm(stack_space)),
-            Raw("stp fp, lr, [sp]".to_string()),
-            Mov(Reg(Fp), Reg(Sp)), // Set frame pointer
-        ],
-        compile_expr(defs, &ftab, (args.len() as i64 + 2) * -16, body.clone()),
-        vec![
-            Raw("ldp fp, lr, [sp]".to_string()),
-            Add(Reg(Sp), Imm(stack_space)),
-            Ret,
-        ],
+        vec![Label(name.clone()), create_stack_frame(stack_space)],
+        compile_expr(defs, &ftab, (args.len() as i64 + 1) * 8, body.clone()),
+        vec![destroy_stack_frame(stack_space), Ret],
     ]
     .concat()
 }
@@ -280,5 +272,13 @@ pub fn compile(Program(defs, expr): Program) -> Vec<Directive> {
         .flat_map(|d| compile_definitions(&defs.clone(), &d.clone()))
         .collect();
     let ret = vec![Ret];
-    [start, body, ret, definitions].concat()
+    [
+        start,
+        vec![create_stack_frame(16)],
+        body,
+        vec![destroy_stack_frame(16)],
+        ret,
+        definitions,
+    ]
+    .concat()
 }
